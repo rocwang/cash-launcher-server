@@ -2,6 +2,12 @@ import url from "url";
 import fs from "fs";
 import https from "https";
 import WebSocket from "ws";
+import { init, pan, tilt } from "./servo";
+
+declare interface Orientation {
+  alpha: number;
+  beta: number;
+}
 
 const server = https.createServer({
   key: fs.readFileSync("./key.pem"),
@@ -22,7 +28,19 @@ const wssArray = ["/velocity", "/orientation"].map((path) => {
     currentSocket = ws;
 
     currentSocket.on("message", (message: string) => {
-      console.log(message);
+      const data: number | Orientation = JSON.parse(message);
+
+      switch (path) {
+        case "/velocity":
+          handleVelocity(data as number);
+          break;
+        case "/orientation":
+          handleOrientation(data as Orientation);
+          break;
+        default:
+          console.log(message);
+          break;
+      }
     });
 
     currentSocket.on("close", (code: number, reason: string) => {
@@ -48,6 +66,17 @@ server.on("upgrade", function upgrade(request, socket, head) {
     socket.destroy();
   }
 });
+
+function handleOrientation(o: Orientation) {
+  pan(o.alpha);
+  tilt(o.beta);
+}
+
+function handleVelocity(v: number) {
+  console.log(`velocity: ${v}`);
+}
+
+init();
 
 const port = 443;
 server.listen(port);
