@@ -1,8 +1,10 @@
 import url from "url";
 import fs from "fs";
 import https from "https";
-import WebSocket from "ws";
-import { init, pan, tilt } from "./servo";
+import WebSocket, { MessageEvent } from "ws";
+import { toggleMotor, init, pan, tilt } from "./motors";
+import { fromEvent, Observable, of } from "rxjs";
+import { map, switchMap, delay, startWith } from "rxjs/operators";
 
 declare interface Orientation {
   alpha: number;
@@ -27,21 +29,33 @@ const wssArray = ["/velocity", "/orientation"].map((path) => {
 
     currentSocket = ws;
 
-    currentSocket.on("message", (message: string) => {
-      const data: number | Orientation = JSON.parse(message);
+    const message$ = fromEvent<MessageEvent>(currentSocket, "message");
+    switch (path) {
+      case "/velocity":
+        message$
+          .pipe(
+            map<MessageEvent, number>((e: MessageEvent) =>
+              JSON.parse(e.data as string)
+            ),
+            switchMap<number, Observable<boolean>>((v: number) => {
+              // v < -1
+              return of(false).pipe(delay(300), startWith(Boolean(v)));
+            })
+          )
+          .subscribe(toggleMotor);
+        break;
+      case "/orientation":
+        message$.subscribe((e: MessageEvent) => {
+          const o: Orientation = JSON.parse(e.data as string);
 
-      switch (path) {
-        case "/velocity":
-          handleVelocity(data as number);
-          break;
-        case "/orientation":
-          handleOrientation(data as Orientation);
-          break;
-        default:
-          console.log(message);
-          break;
-      }
-    });
+          pan(o.alpha);
+          tilt(o.beta);
+        });
+        break;
+      default:
+        currentSocket.close(1000, "Unknown websocket path");
+        break;
+    }
 
     currentSocket.on("close", (code: number, reason: string) => {
       console.log(code, reason);
@@ -66,15 +80,6 @@ server.on("upgrade", function upgrade(request, socket, head) {
     socket.destroy();
   }
 });
-
-function handleOrientation(o: Orientation) {
-  pan(o.alpha);
-  tilt(o.beta);
-}
-
-function handleVelocity(v: number) {
-  console.log(`velocity: ${v}`);
-}
 
 init();
 
