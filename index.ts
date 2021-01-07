@@ -4,17 +4,13 @@ import https from "https";
 import WebSocket, { MessageEvent } from "ws";
 import { toggleMotor, init, pan, tilt } from "./motors";
 import { fromEvent, Observable, of } from "rxjs";
-import { map, switchMap, delay, startWith } from "rxjs/operators";
+import { map, switchMap, delay, startWith, filter, tap } from "rxjs/operators";
+import { IncomingMessage, ServerResponse } from "http";
 
 declare interface Orientation {
   alpha: number;
   beta: number;
 }
-
-const server = https.createServer({
-  key: fs.readFileSync("./key.pem"),
-  cert: fs.readFileSync("./crt.pem"),
-});
 
 const wssArray = ["/velocity", "/orientation"].map((path) => {
   const wss = new WebSocket.Server({ noServer: true });
@@ -37,10 +33,10 @@ const wssArray = ["/velocity", "/orientation"].map((path) => {
             map<MessageEvent, number>((e: MessageEvent) =>
               JSON.parse(e.data as string)
             ),
-            switchMap<number, Observable<boolean>>((v: number) => {
-              // v < -1
-              return of(false).pipe(delay(300), startWith(Boolean(v)));
-            })
+            // v < -1
+            switchMap<number, Observable<boolean>>((v: number) =>
+              of(false).pipe(delay(300), startWith(Boolean(v)))
+            )
           )
           .subscribe(toggleMotor);
         break;
@@ -57,9 +53,9 @@ const wssArray = ["/velocity", "/orientation"].map((path) => {
         break;
     }
 
-    currentSocket.on("close", (code: number, reason: string) => {
-      console.log(code, reason);
-    });
+    currentSocket.on("close", (code: number, reason: string) =>
+      console.log(code, reason)
+    );
   });
 
   return {
@@ -68,7 +64,12 @@ const wssArray = ["/velocity", "/orientation"].map((path) => {
   };
 });
 
-server.on("upgrade", function upgrade(request, socket, head) {
+const server = https.createServer({
+  key: fs.readFileSync("./key.pem"),
+  cert: fs.readFileSync("./crt.pem"),
+});
+
+server.on("upgrade", (request, socket, head) => {
   const pathname = url.parse(request.url).pathname;
 
   const match = wssArray.find(({ path }) => path === pathname);
@@ -80,6 +81,25 @@ server.on("upgrade", function upgrade(request, socket, head) {
     socket.destroy();
   }
 });
+
+function isSiriRequest(req: IncomingMessage) {
+  const pathname = url.parse(req.url as string).pathname;
+
+  return pathname === "/siri";
+}
+
+fromEvent<[IncomingMessage, ServerResponse]>(server, "request")
+  .pipe(
+    tap(([req, res]) => {
+      res.writeHead(isSiriRequest(req) ? 200 : 404);
+      res.end();
+    }),
+    filter(([req]) => isSiriRequest(req)),
+    switchMap<any, Observable<boolean>>(() =>
+      of(false).pipe(delay(500), startWith(true))
+    )
+  )
+  .subscribe(toggleMotor);
 
 init();
 
