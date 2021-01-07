@@ -55,16 +55,13 @@ export function init() {
   );
 
   reset();
-
-  rpio.write(MOTOR_IN1_PIN, rpio.HIGH);
-  rpio.write(MOTOR_IN2_PIN, rpio.LOW);
 }
 
-function reset() {
+export function reset() {
   resetServos();
   toggleMotor(false);
 
-  rpio.write(MOTOR_IN1_PIN, rpio.LOW);
+  rpio.write(MOTOR_IN1_PIN, rpio.HIGH);
   rpio.write(MOTOR_IN2_PIN, rpio.LOW);
 }
 

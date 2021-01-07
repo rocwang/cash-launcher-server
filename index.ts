@@ -2,7 +2,7 @@ import url from "url";
 import fs from "fs";
 import https from "https";
 import WebSocket, { MessageEvent } from "ws";
-import { toggleMotor, init, pan, tilt } from "./motors";
+import { toggleMotor, init, pan, tilt, reset } from "./motors";
 import { fromEvent, Observable, of } from "rxjs";
 import { map, switchMap, delay, startWith, filter, tap } from "rxjs/operators";
 import { IncomingMessage, ServerResponse } from "http";
@@ -53,9 +53,10 @@ const wssArray = ["/velocity", "/orientation"].map((path) => {
         break;
     }
 
-    currentSocket.on("close", (code: number, reason: string) =>
-      console.log(code, reason)
-    );
+    currentSocket.on("close", (code: number, reason: string) => {
+      console.log(code, reason);
+      reset();
+    });
   });
 
   return {
@@ -91,7 +92,7 @@ function isSiriRequest(req: IncomingMessage) {
 fromEvent<[IncomingMessage, ServerResponse]>(server, "request")
   .pipe(
     tap(([req, res]) => {
-      res.writeHead(isSiriRequest(req) ? 200 : 404);
+      res.writeHead(isSiriRequest(req) ? 204 : 404);
       res.end();
     }),
     filter(([req]) => isSiriRequest(req)),
