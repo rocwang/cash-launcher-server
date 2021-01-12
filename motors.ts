@@ -13,16 +13,9 @@ const PAN_PWM_DATA_BASE = 630;
 
 const PWM_RANGE = 3000;
 
-[
-  "exit",
-  "SIGINT",
-  "SIGUSR1",
-  "SIGUSR2",
-  "uncaughtException",
-  "SIGTERM",
-].forEach((eventType) =>
-  process.on(eventType, () => {
-    console.log(eventType);
+["exit", "SIGINT", "SIGUSR1", "SIGUSR2", "SIGTERM"].forEach((eventType) =>
+  process.on(eventType, (e) => {
+    console.log(eventType, e);
     reset();
 
     rpio.sleep(1);
@@ -42,11 +35,7 @@ const PWM_RANGE = 3000;
 export function init() {
   [TILT_SERVO_PWM_PIN, PAN_SERVO_PWM_PIN].forEach((pin) => {
     rpio.open(pin, rpio.PWM);
-  });
-
-  rpio.pwmSetClockDivider(128);
-
-  [TILT_SERVO_PWM_PIN, PAN_SERVO_PWM_PIN].forEach((pin) => {
+    rpio.pwmSetClockDivider(128);
     rpio.pwmSetRange(pin, PWM_RANGE);
   });
 

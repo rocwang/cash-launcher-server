@@ -35,7 +35,7 @@ const wssArray = ["/velocity", "/orientation"].map((path) => {
             ),
             // v < -1
             switchMap<number, Observable<boolean>>((v: number) =>
-              of(false).pipe(delay(300), startWith(Boolean(v)))
+              of(false).pipe(delay(500), startWith(Boolean(v)))
             )
           )
           .subscribe(toggleMotor);
@@ -66,8 +66,8 @@ const wssArray = ["/velocity", "/orientation"].map((path) => {
 });
 
 const server = https.createServer({
-  key: fs.readFileSync("./key.pem"),
-  cert: fs.readFileSync("./crt.pem"),
+  key: fs.readFileSync(`${__dirname}/../key.pem`),
+  cert: fs.readFileSync(`${__dirname}/../crt.pem`),
 });
 
 server.on("upgrade", (request, socket, head) => {
